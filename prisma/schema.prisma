@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Clue {
+  id          Int      @id @default(autoincrement())
+  clueText    String   @map("clue_text")
+  answer      String
+  length      Int
+  pattern     String?
+  source      String?
+  difficulty  Int?
+  popularity  Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  synonyms    ClueSynonym[]
+
+  @@index([clueText])
+  @@index([answer])
+  @@index([length])
+}
+
+model ClueSynonym {
+  id               Int      @id @default(autoincrement())
+  clueId           Int
+  synonym          String
+  relationshipType String   @map("relationship_type")
+
+  clue             Clue     @relation(fields: [clueId], references: [id], onDelete: Cascade)
+}
+
+model UserSubmission {
+  id          Int      @id @default(autoincrement())
+  clueText    String   @map("clue_text")
+  answer      String
+  source      String?
+  status      String   @default("pending")
+  submittedBy String?  @map("submitted_by")
+  submittedAt DateTime @default(now()) @map("submitted_at")
+}
