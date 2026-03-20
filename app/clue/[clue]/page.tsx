@@ -23,16 +23,23 @@ export default function CluePage({ params }: { params: { clue: string } }) {
   const [data, setData] = useState<ClueData | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isMounted, setIsMounted] = useState(false)
   const decodedClue = decodeURIComponent(params.clue)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+    
     fetch(`/api/clue/${encodeURIComponent(decodedClue)}`)
       .then(res => res.json())
       .then(data => {
         setData(data)
         setLoading(false)
       })
-  }, [decodedClue])
+  }, [decodedClue, isMounted])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,7 +48,19 @@ export default function CluePage({ params }: { params: { clue: string } }) {
     }
   }
 
-  if (loading) {
+  // Group answers by length
+  const groupAnswersByLength = (answers: ClueData['answers']) => {
+    const grouped: Record<number, ClueData['answers']> = {}
+    answers.forEach(ans => {
+      if (!grouped[ans.length]) {
+        grouped[ans.length] = []
+      }
+      grouped[ans.length].push(ans)
+    })
+    return grouped
+  }
+
+  if (!isMounted || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-xl text-gray-600">Loading...</div>
@@ -50,6 +69,8 @@ export default function CluePage({ params }: { params: { clue: string } }) {
   }
 
   const mainAnswer = data?.answers[0]
+  const groupedAnswers = data ? groupAnswersByLength(data.answers) : {}
+  const sortedLengths = Object.keys(groupedAnswers).map(Number).sort((a, b) => a - b)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -114,26 +135,31 @@ export default function CluePage({ params }: { params: { clue: string } }) {
               )}
             </div>
 
-            {/* Other Possible Answers */}
-            {data?.answers.length > 1 && (
-              <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Other Possible Answers
-                </h2>
-                <div className="space-y-2">
-                  {data.answers.slice(1).map((ans, idx) => (
-                    <Link
-                      key={idx}
-                      href={`/answer/${encodeURIComponent(ans.answer.toLowerCase())}`}
-                      className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-gray-900">{ans.answer}</span>
-                        <span className="text-sm text-gray-500">{ans.length} letters</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+            {/* Answers Grouped by Length */}
+            {sortedLengths.length > 0 && (
+              <div className="space-y-6 mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">All Possible Answers</h2>
+                {sortedLengths.map(length => (
+                  <div key={length} className="bg-white rounded-xl shadow-md p-6">
+                    <h3 className="text-lg font-semibold text-indigo-600 mb-4">
+                      {length} Letter{length !== 1 ? 's' : ''}
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {groupedAnswers[length].map((ans, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3 bg-gray-50 rounded-lg border-2 border-transparent hover:border-indigo-300 hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="font-medium text-gray-900 text-lg">{ans.answer}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Pop: {ans.popularity}
+                            {ans.source && ` · ${ans.source}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
