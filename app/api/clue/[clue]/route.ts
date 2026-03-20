@@ -12,7 +12,6 @@ export async function GET(
   try {
     initWordStore()
 
-    // First try the database for crossword clues
     const allClues = await prisma.clue.findMany({
       include: {
         synonyms: true,
@@ -31,32 +30,30 @@ export async function GET(
       const pattern = searchQuery.replace(/[?_\s]/g, '.').toUpperCase()
       const regex = new RegExp(`^${pattern}$`, 'i')
       
-      matchingClues = allClues.filter(clue =&gt; regex.test(clue.answer))
+      matchingClues = allClues.filter(clue => regex.test(clue.answer))
     } else {
       const searchUpper = searchQuery.toUpperCase()
       
-      matchingClues = allClues.filter(clue =&gt; {
+      matchingClues = allClues.filter(clue => {
         const answerUpper = clue.answer.toUpperCase()
         const clueTextUpper = clue.clueText.toUpperCase()
         return answerUpper.includes(searchUpper) || clueTextUpper.includes(searchUpper)
       })
     }
 
-    // Get database answers
     const dbAnswers = Array.from(
-      new Map(matchingClues.map(clue =&gt; [clue.answer, clue])).values()
-    ).map(clue =&gt; ({
+      new Map(matchingClues.map(clue => [clue.answer, clue])).values()
+    ).map(clue => ({
       answer: clue.answer.toUpperCase(),
       length: clue.length,
       source: clue.source,
       popularity: clue.popularity,
     }))
 
-    // Also get words from our big word list for pattern matching
     const wordMatches = searchWords(searchQuery, 50)
     const wordAnswers = wordMatches
-      .filter(word =&gt; !dbAnswers.some(a =&gt; a.answer.toLowerCase() === word))
-      .map(word =&gt; {
+      .filter(word => !dbAnswers.some(a => a.answer.toLowerCase() === word))
+      .map(word => {
         const data = getWordData(word)
         return {
           answer: word.toUpperCase(),
@@ -66,28 +63,25 @@ export async function GET(
         }
       })
 
-    // Combine and deduplicate
     const allAnswers = [...dbAnswers, ...wordAnswers]
 
-    // Collect synonyms
     const synonyms = Array.from(
-      new Set(matchingClues.flatMap(clue =&gt; clue.synonyms.map(s =&gt; s.synonym)))
+      new Set(matchingClues.flatMap(clue => clue.synonyms.map(s => s.synonym)))
     ).slice(0, 10)
 
-    // Find related clues
     let relatedClues: any[] = []
-    if (matchingClues.length &gt; 0) {
+    if (matchingClues.length > 0) {
       relatedClues = await prisma.clue.findMany({
         where: {
           AND: [
             {
               OR: [
                 { length: matchingClues[0].length },
-                { answer: { in: dbAnswers.map(a =&gt; a.answer.toLowerCase()) } },
+                { answer: { in: dbAnswers.map(a => a.answer.toLowerCase()) } },
               ],
             },
             {
-              NOT: matchingClues.map(c =&gt; ({ id: c.id })),
+              NOT: matchingClues.map(c => ({ id: c.id })),
             },
           ],
         },
@@ -100,7 +94,7 @@ export async function GET(
       clueText: searchQuery,
       answers: allAnswers,
       synonyms,
-      relatedClues: relatedClues.map(clue =&gt; ({
+      relatedClues: relatedClues.map(clue => ({
         clueText: clue.clueText,
         answer: clue.answer.toUpperCase(),
         length: clue.length,
@@ -114,3 +108,4 @@ export async function GET(
     )
   }
 }
+

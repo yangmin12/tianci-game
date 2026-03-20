@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     initWordStore()
     const words = searchWords(query, 100)
     
-    const results = words.map(word =&gt; {
+    const results = words.map(word => {
       const data = getWordData(word)
       return {
         word,
@@ -29,3 +29,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Search failed' }, { status: 500 })
   }
 }
+

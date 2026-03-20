@@ -7,7 +7,7 @@ interface WordData {
   frequency: number
 }
 
-let wordStore: Record&lt;string, WordData&gt; | null = null
+let wordStore: Record<string, WordData> | null = null
 let wordList: string[] | null = null
 
 export function initWordStore() {
@@ -19,7 +19,7 @@ export function initWordStore() {
   }
 
   wordStore = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
-  wordList = Object.keys(wordStore).sort((a, b) =&gt; {
+  wordList = Object.keys(wordStore as Record<string, WordData>).sort((a, b) => {
     const aData = wordStore![a]
     const bData = wordStore![b]
     if (aData.length !== bData.length) return aData.length - bData.length
@@ -34,7 +34,6 @@ export function searchWords(pattern: string, limit = 100): string[] {
     initWordStore()
   }
 
-  // Convert user pattern to regex
   let regexPattern = pattern
     .toLowerCase()
     .replace(/\?/g, '.')
@@ -42,12 +41,10 @@ export function searchWords(pattern: string, limit = 100): string[] {
     .replace(/\*/g, '.*')
     .replace(/\s+/g, '.*')
 
-  // If no wildcards, assume it's a substring match
-  if (!regexPattern.includes('.') &amp;&amp; !regexPattern.includes('*')) {
+  if (!regexPattern.includes('.') && !regexPattern.includes('*')) {
     regexPattern = `.*${regexPattern}.*`
   }
 
-  // Anchor if not already anchored
   if (!regexPattern.startsWith('^')) regexPattern = `^${regexPattern}`
   if (!regexPattern.endsWith('$')) regexPattern = `${regexPattern}$`
 
@@ -58,7 +55,7 @@ export function searchWords(pattern: string, limit = 100): string[] {
     for (const word of wordList!) {
       if (regex.test(word)) {
         results.push(word)
-        if (results.length &gt;= limit) break
+        if (results.length >= limit) break
       }
     }
 
@@ -73,3 +70,4 @@ export function getWordData(word: string): WordData | null {
   if (!wordStore) initWordStore()
   return wordStore![word.toLowerCase()] || null
 }
+
