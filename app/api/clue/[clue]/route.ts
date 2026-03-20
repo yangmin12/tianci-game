@@ -1,21 +1,19 @@
+
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { initWordStore, searchWords, getWordData } from '@/lib/wordStore'
 
 export async function GET(
   request: Request,
   { params }: { params: { clue: string } }
 ) {
-  const clueText = decodeURIComponent(params.clue).toLowerCase()
+  const searchQuery = decodeURIComponent(params.clue).toLowerCase()
 
   try {
-    // Find clues matching the search text
-    const clues = await prisma.clue.findMany({
-      where: {
-        clueText: {
-          contains: clueText,
-          mode: 'insensitive',
-        },
-      },
+    initWordStore()
+
+    // First try the database for crossword clues
+    const allClues = await prisma.clue.findMany({
       include: {
         synonyms: true,
       },
@@ -25,60 +23,84 @@ export async function GET(
       ],
     })
 
-    if (clues.length === 0) {
-      // If no exact match, try pattern search or return empty
-      return NextResponse.json({
-        clueText: clueText,
-        answers: [],
-        synonyms: [],
-        relatedClues: [],
+    const hasWildcards = searchQuery.includes('?') || searchQuery.includes('_') || searchQuery.includes(' ')
+    
+    let matchingClues: typeof allClues = []
+
+    if (hasWildcards) {
+      const pattern = searchQuery.replace(/[?_\s]/g, '.').toUpperCase()
+      const regex = new RegExp(`^${pattern}$`, 'i')
+      
+      matchingClues = allClues.filter(clue =&gt; regex.test(clue.answer))
+    } else {
+      const searchUpper = searchQuery.toUpperCase()
+      
+      matchingClues = allClues.filter(clue =&gt; {
+        const answerUpper = clue.answer.toUpperCase()
+        const clueTextUpper = clue.clueText.toUpperCase()
+        return answerUpper.includes(searchUpper) || clueTextUpper.includes(searchUpper)
       })
     }
 
-    // Get unique answers sorted by popularity
-    const answers = Array.from(
-      new Map(clues.map(clue => [clue.answer, clue])).values()
-    ).map(clue => ({
+    // Get database answers
+    const dbAnswers = Array.from(
+      new Map(matchingClues.map(clue =&gt; [clue.answer, clue])).values()
+    ).map(clue =&gt; ({
       answer: clue.answer.toUpperCase(),
       length: clue.length,
       source: clue.source,
       popularity: clue.popularity,
     }))
 
+    // Also get words from our big word list for pattern matching
+    const wordMatches = searchWords(searchQuery, 50)
+    const wordAnswers = wordMatches
+      .filter(word =&gt; !dbAnswers.some(a =&gt; a.answer.toLowerCase() === word))
+      .map(word =&gt; {
+        const data = getWordData(word)
+        return {
+          answer: word.toUpperCase(),
+          length: data?.length || word.length,
+          source: 'Word Dictionary',
+          popularity: data?.frequency || 0,
+        }
+      })
+
+    // Combine and deduplicate
+    const allAnswers = [...dbAnswers, ...wordAnswers]
+
     // Collect synonyms
     const synonyms = Array.from(
-      new Set(clues.flatMap(clue => clue.synonyms.map(s => s.synonym)))
+      new Set(matchingClues.flatMap(clue =&gt; clue.synonyms.map(s =&gt; s.synonym)))
     ).slice(0, 10)
 
-    // Find related clues (same length or similar answers)
-    const relatedClues = await prisma.clue.findMany({
-      where: {
-        AND: [
-          {
-            OR: [
-              { length: clues[0].length },
-              { answer: { in: answers.map(a => a.answer.toLowerCase()) } },
-            ],
-          },
-          {
-            clueText: {
-              not: {
-                contains: clueText,
-                mode: 'insensitive',
-              },
+    // Find related clues
+    let relatedClues: any[] = []
+    if (matchingClues.length &gt; 0) {
+      relatedClues = await prisma.clue.findMany({
+        where: {
+          AND: [
+            {
+              OR: [
+                { length: matchingClues[0].length },
+                { answer: { in: dbAnswers.map(a =&gt; a.answer.toLowerCase()) } },
+              ],
             },
-          },
-        ],
-      },
-      take: 6,
-      orderBy: { popularity: 'desc' },
-    })
+            {
+              NOT: matchingClues.map(c =&gt; ({ id: c.id })),
+            },
+          ],
+        },
+        take: 6,
+        orderBy: { popularity: 'desc' },
+      })
+    }
 
     return NextResponse.json({
-      clueText: clueText,
-      answers,
+      clueText: searchQuery,
+      answers: allAnswers,
       synonyms,
-      relatedClues: relatedClues.map(clue => ({
+      relatedClues: relatedClues.map(clue =&gt; ({
         clueText: clue.clueText,
         answer: clue.answer.toUpperCase(),
         length: clue.length,
