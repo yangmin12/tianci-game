@@ -15,6 +15,9 @@ export default function Home() {
     }
   }
 
+  // Display search query with spaces replaced by ? for better user perception
+  const displayQuery = searchQuery.replace(/ /g, '?')
+
   const popularSearches = [
     'Stupidity',
     'Folly',
@@ -60,7 +63,7 @@ export default function Home() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter a crossword clue, e.g., 'Stupidity'"
+                placeholder="Enter a crossword clue, e.g., 'Stupidity' or use spaces for wildcards: 'D G'"
                 className="w-full px-6 py-4 text-lg border-2 border-gray-200 rounded-full focus:border-indigo-500 focus:outline-none shadow-lg"
                 autoComplete="off"
               />
@@ -71,24 +74,43 @@ export default function Home() {
                 Search
               </button>
             </div>
+            {/* Visual feedback for spaces */}
+            {searchQuery && searchQuery.includes(' ') && (
+              <div className="mt-3 text-center">
+                <p className="text-sm text-gray-600">
+                  Searching for: <span className="font-mono text-lg text-indigo-600 font-bold">{displayQuery}</span>
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Spaces represent unknown letters (use ? or _ as well)
+                </p>
+              </div>
+            )}
           </form>
         </div>
 
         {/* Quick Search Tips */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Search Tips</h2>
-          <div className="grid md:grid-cols-3 gap-4 text-sm">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Wildcard Search Guide</h2>
+          <div className="grid md:grid-cols-2 gap-4 text-sm">
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="font-medium text-indigo-600">By Clue</p>
-              <p className="text-gray-600">"Stupidity"</p>
+              <p className="font-medium text-indigo-600">Single Character: ? or _</p>
+              <p className="text-gray-600">Use <code>?</code> or <code>_</code> for one unknown letter</p>
+              <p className="text-xs text-gray-500 mt-1">Example: <code>d?g</code> → dog, dig, dug</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="font-medium text-indigo-600">By Pattern</p>
-              <p className="text-gray-600">"I____Y"</p>
+              <p className="font-medium text-indigo-600">Multiple Characters: * or space</p>
+              <p className="text-gray-600">Use <code>*</code> or space for any number of letters</p>
+              <p className="text-xs text-gray-500 mt-1">Example: <code>d*g</code> → dog, drag, doing</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="font-medium text-indigo-600">By Length</p>
-              <p className="text-gray-600">Browse 3-12 letters</p>
+              <p className="font-medium text-indigo-600">Contains Word</p>
+              <p className="text-gray-600">Wrap with <code>*</code> to find containing words</p>
+              <p className="text-xs text-gray-500 mt-1">Example: <code>*love*</code> → love, lover, beloved</p>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="font-medium text-indigo-600">Exact Length</p>
+              <p className="text-gray-600">Use multiple <code>?</code> for exact length</p>
+              <p className="text-xs text-gray-500 mt-1">Example: <code>????</code> → any 4-letter word</p>
             </div>
           </div>
         </div>
